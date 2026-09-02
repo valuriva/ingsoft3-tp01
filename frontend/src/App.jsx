@@ -1,6 +1,13 @@
 import { useEffect, useState } from 'react'
+import './App.css'
 
 const vacio = { titulo: '', autor: '', genero: '', estado: 'pendiente', calificacion: '' }
+
+const ETIQUETAS_ESTADO = {
+  pendiente: 'Pendiente',
+  leyendo: 'Leyendo',
+  leido: 'Leído',
+}
 
 export default function App() {
   const [libros, setLibros] = useState([])
@@ -56,29 +63,34 @@ export default function App() {
     : libros.filter(l => l.estado === filtro)
 
   return (
-    <div style={{ maxWidth: 700, margin: '2rem auto', fontFamily: 'sans-serif' }}>
+    <div className="app">
       <h1>📚 Mi Biblioteca</h1>
 
-      <form onSubmit={guardar} style={{ display: 'grid', gap: 8, marginBottom: 24 }}>
-        <input placeholder="Título" required value={form.titulo}
-          onChange={e => setForm({ ...form, titulo: e.target.value })} />
-        <input placeholder="Autor" required value={form.autor}
-          onChange={e => setForm({ ...form, autor: e.target.value })} />
-        <input placeholder="Género" value={form.genero}
-          onChange={e => setForm({ ...form, genero: e.target.value })} />
-        <select value={form.estado} onChange={e => setForm({ ...form, estado: e.target.value })}>
-          <option value="pendiente">Pendiente</option>
-          <option value="leyendo">Leyendo</option>
-          <option value="leido">Leído</option>
-        </select>
-        <input type="number" min="1" max="5" placeholder="Calificación (1-5)"
-          value={form.calificacion}
-          onChange={e => setForm({ ...form, calificacion: e.target.value })} />
-        <button type="submit">{editandoId ? 'Guardar cambios' : 'Agregar libro'}</button>
-      </form>
+      <div className="form-card">
+        <h2>{editandoId ? 'Editar libro' : 'Agregar libro'}</h2>
+        <form onSubmit={guardar} className="form-grid">
+          <input placeholder="Título" required value={form.titulo}
+            onChange={e => setForm({ ...form, titulo: e.target.value })} />
+          <input placeholder="Autor" required value={form.autor}
+            onChange={e => setForm({ ...form, autor: e.target.value })} />
+          <input placeholder="Género" value={form.genero}
+            onChange={e => setForm({ ...form, genero: e.target.value })} />
+          <select value={form.estado} onChange={e => setForm({ ...form, estado: e.target.value })}>
+            <option value="pendiente">Pendiente</option>
+            <option value="leyendo">Leyendo</option>
+            <option value="leido">Leído</option>
+          </select>
+          <input type="number" min="1" max="5" placeholder="Calificación (1-5)"
+            value={form.calificacion}
+            onChange={e => setForm({ ...form, calificacion: e.target.value })} />
+          <button type="submit" className="btn-primary">
+            {editandoId ? 'Guardar cambios' : 'Agregar libro'}
+          </button>
+        </form>
+      </div>
 
-      <div style={{ marginBottom: 12 }}>
-        Filtrar:{' '}
+      <div className="filtro-row">
+        Filtrar por estado:
         <select value={filtro} onChange={e => setFiltro(e.target.value)}>
           <option value="todos">Todos</option>
           <option value="pendiente">Pendiente</option>
@@ -87,18 +99,26 @@ export default function App() {
         </select>
       </div>
 
-      <ul style={{ listStyle: 'none', padding: 0 }}>
-        {librosFiltrados.map(l => (
-          <li key={l.id} style={{ border: '1px solid #ccc', borderRadius: 6, padding: 10, marginBottom: 8 }}>
-            <strong>{l.titulo}</strong> — {l.autor} ({l.genero || 'sin género'})
-            <br />
-            Estado: {l.estado} {l.calificacion ? `· ⭐ ${l.calificacion}` : ''}
-            <br />
-            <button onClick={() => editar(l)}>Editar</button>{' '}
-            <button onClick={() => borrar(l.id)}>Borrar</button>
-          </li>
-        ))}
-      </ul>
+      {librosFiltrados.length === 0 ? (
+        <p className="vacio">Todavía no hay libros para mostrar.</p>
+      ) : (
+        <ul className="lista">
+          {librosFiltrados.map(l => (
+            <li key={l.id} className="libro-card">
+              <div className="titulo">{l.titulo}</div>
+              <div className="meta">
+                {l.autor} {l.genero ? `· ${l.genero}` : ''}
+              </div>
+              <span className={`badge badge-${l.estado}`}>{ETIQUETAS_ESTADO[l.estado]}</span>
+              {l.calificacion ? <span className="estrella">⭐ {l.calificacion}</span> : null}
+              <div className="acciones">
+                <button onClick={() => editar(l)}>Editar</button>
+                <button className="borrar" onClick={() => borrar(l.id)}>Borrar</button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   )
 }
