@@ -1,4 +1,4 @@
-﻿# dependencias y artefactos de build
+# dependencias y artefactos de build
 node_modules/
 bin/
 obj/
@@ -14,3 +14,14 @@ build/
 Thumbs.db
 .vscode/
 .idea/
+
+# .NET
+bin/
+obj/
+
+# Node
+node_modules/
+dist/
+
+# secretos
+.envS
