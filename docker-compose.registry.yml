@@ -12,7 +12,7 @@ services:
       retries: 10
 
   backend:
-    image: ghcr.io/TU_USUARIO/mi-biblioteca-backend:v0.1.0
+    image: ghcr.io/valuriva/mi-biblioteca-backend:v0.1.0
     environment:
       ConnectionStrings__Default: "Host=db;Database=app;Username=postgres;Password=${DB_PASSWORD}"
     ports:
@@ -22,7 +22,7 @@ services:
         condition: service_healthy
 
   frontend:
-    image: ghcr.io/TU_USUARIO/mi-biblioteca-frontend:v0.1.0
+    image: ghcr.io/valuriva/mi-biblioteca-frontend:v0.1.0
     ports:
       - "3000:80"
     depends_on:
