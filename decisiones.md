@@ -61,3 +61,38 @@ y la trazabilidad vía `Closes #N`. Verifiqué cada paso con los checkpoints de 
 jerarquía fuera navegable (sub-issues reales, no task-lists), que el Project abriera sin login en
 una ventana de incógnito, y que al mergear el PR la tarea se cerrara sola y se moviera a Done en
 el tablero.
+
+## TP4 — CI: Pipelines as Code
+
+### Estructura del pipeline
+Dos jobs en paralelo, `build-backend` y `build-frontend`, porque mi app tiene un Dockerfile
+separado para cada uno (del TP2). Cada job corre en su propia maquina limpia y no comparte
+filesystem con el otro, asi que no tiene sentido combinarlos en uno solo.
+
+### Cache
+El pipeline cachea las capas de Docker con `type=gha`, con un `scope` distinto por job
+(`backend` y `frontend`) para que no se pisen entre si. En la segunda corrida del mismo PR se ve
+la palabra `CACHED` en las capas que no cambiaron. Si el cache desaparece, el pipeline funciona
+igual, solo que mas lento, no depende de el para pasar.
+
+### Por que construye con el Dockerfile del TP2
+Para no tener dos definiciones de build distintas (una en el pipeline y otra en el Dockerfile)
+que puedan divergir. Asi lo que se verifica en el pipeline es exactamente lo mismo que después
+se desplegaria.
+
+### Problemas encontrados
+- Al reescribir el README con notepad, el archivo se corrompio por un problema de codificación
+  de caracteres (tildes rotas) — se resolvió reescribiendo el archivo completo por consola con
+  `Out-File -Encoding utf8`.
+- Se me desordenaron un par de ramas locales al armar el PR del badge — se resolvio arrancando
+  una rama nueva limpia desde `main` actualizado.
+- Al configurar el gate antes de que los jobs hubieran corrido una vez, no aparecian en el
+  buscador de checks — se resolvio corriendo el workflow primero y recien despues configurando
+  la proteccion.
+
+### Uso de IA
+Use Claude para guiarme paso a paso en escribir el workflow (jobs en paralelo, cache con scope),
+configurar el gate de status checks, y armar la demostración de compilación rota -> bloqueado ->
+fix -> verde -> merge. Verifique cada paso con los checkpoints de la guía: que el pipeline
+corriera solo al abrir el PR, que la segunda corrida mostrara `CACHED`, que el botón de merge
+quedara bloqueado con el check en rojo, y que el badge llevara al historial real de corridas.
