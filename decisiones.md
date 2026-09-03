@@ -49,6 +49,11 @@ Elegí sprints de 1 semana, porque la cátedra entrega tps con cada una semana y
 Configuré el límite en 2, ya que como estoy trabajando sola es 1 por persona más 1 de margen. El más 1 de margen me permite tener algo esperando (ej: una revisión, o un PR abierto sin mergear) sin que eso bloquee para avanzar en otra tarea. 
 
 ### Diagnóstico de la historia mal escrita
+La historia "Como desarrollador quiero crear la tabla usuarios para guardar los datos" está mal
+escrita porque en realidad es una "tarea disfrazada de historia": nadie "quiere" una tabla en sí
+misma, quiere la capacidad que esa tabla habilita (por ejemplo, poder registrarse). La reescribiría
+como: "Como usuario quiero poder registrarme con mi email para acceder a la aplicación", y
+"crear la tabla usuarios" pasaría a ser una de sus tareas técnicas, no la historia completa.
 
 ### Problemas encontrados 
 - `gh project list` tiraba error de permisos, pero se resolvió con `gh auth refresh -s project`
