@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import './App.css'
+import { validarLibro, filtrarPorEstado } from './lib/libros.js'
 
 const vacio = { titulo: '', autor: '', genero: '', estado: 'pendiente', calificacion: '' }
 
@@ -28,14 +29,26 @@ export default function App() {
       ...form,
       calificacion: form.calificacion ? Number(form.calificacion) : null,
     }
+
+    const validacion = validarLibro(payload)
+    if (!validacion.valido) {
+      alert(validacion.error)
+      return
+    }
+
     const url = editandoId ? `/api/libros/${editandoId}` : '/api/libros'
     const method = editandoId ? 'PUT' : 'POST'
 
-    await fetch(url, {
+    const res = await fetch(url, {
       method,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     })
+
+    if (!res.ok) {
+      alert(await res.text())
+      return
+    }
 
     setForm(vacio)
     setEditandoId(null)
@@ -58,9 +71,7 @@ export default function App() {
     cargar()
   }
 
-  const librosFiltrados = filtro === 'todos'
-    ? libros
-    : libros.filter(l => l.estado === filtro)
+  const librosFiltrados = filtrarPorEstado(libros, filtro)
 
   return (
     <div className="app">
@@ -69,7 +80,7 @@ export default function App() {
       <div className="form-card">
         <h2>{editandoId ? 'Editar libro' : 'Agregar libro'}</h2>
         <form onSubmit={guardar} className="form-grid">
-          <input placeholder="Título" required value={form.titulo}
+          <input placeholder="Título" value={form.titulo}
             onChange={e => setForm({ ...form, titulo: e.target.value })} />
           <input placeholder="Autor" required value={form.autor}
             onChange={e => setForm({ ...form, autor: e.target.value })} />

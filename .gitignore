@@ -25,3 +25,7 @@ dist/
 
 # secretos
 .envS
+coverage/
+TestResults/
+coveragereport/
+frontend-coverage/
