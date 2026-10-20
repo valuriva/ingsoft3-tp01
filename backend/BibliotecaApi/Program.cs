@@ -1,4 +1,7 @@
-
+using BibliotecaApi.Data;
+using BibliotecaApi.Logica;
+using BibliotecaApi.Models;
+using BibliotecaApi.Servicios;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -8,6 +11,10 @@ var connectionString = builder.Configuration.GetConnectionString("Default")
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(connectionString));
+
+// Dependencias del servicio (si falta alguna, la app falla en el primer pedido)
+builder.Services.AddScoped<IRepositorioLibros, RepositorioLibros>();
+builder.Services.AddScoped<ServicioDeLibros>();
 
 builder.Services.AddCors(options =>
 {
@@ -19,7 +26,6 @@ var app = builder.Build();
 
 app.UseCors();
 
-// Crea las tablas si no existen (sin migraciones, para simplificar el TP)
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -34,11 +40,21 @@ app.MapGet("/api/libros", async (AppDbContext db) =>
 app.MapGet("/api/libros/{id:int}", async (int id, AppDbContext db) =>
     await db.Libros.FindAsync(id) is Libro libro ? Results.Ok(libro) : Results.NotFound());
 
-app.MapPost("/api/libros", async (Libro libro, AppDbContext db) =>
+app.MapPost("/api/libros", (Libro libro, ServicioDeLibros servicio) =>
 {
-    db.Libros.Add(libro);
-    await db.SaveChangesAsync();
-    return Results.Created($"/api/libros/{libro.Id}", libro);
+    try
+    {
+        var creado = servicio.Crear(libro);
+        return Results.Created($"/api/libros/{creado.Id}", creado);
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(ex.Message);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.Conflict(ex.Message);
+    }
 });
 
 app.MapPut("/api/libros/{id:int}", async (int id, Libro input, AppDbContext db) =>
@@ -46,8 +62,14 @@ app.MapPut("/api/libros/{id:int}", async (int id, Libro input, AppDbContext db) 
     var libro = await db.Libros.FindAsync(id);
     if (libro is null) return Results.NotFound();
 
-    libro.Titulo = input.Titulo;
-    libro.Autor = input.Autor;
+    var validacion = LibroValidator.Validar(input);
+    if (!validacion.EsValido) return Results.BadRequest(validacion.Error);
+
+    if (!LibroValidator.TransicionPermitida(libro.Estado, input.Estado))
+        return Results.BadRequest("Un libro leído no puede volver a pendiente.");
+
+    libro.Titulo = input.Titulo.Trim();
+    libro.Autor = input.Autor.Trim();
     libro.Genero = input.Genero;
     libro.Estado = input.Estado;
     libro.Calificacion = input.Calificacion;
@@ -67,20 +89,3 @@ app.MapDelete("/api/libros/{id:int}", async (int id, AppDbContext db) =>
 });
 
 app.Run();
-
-public class Libro
-{
-    public int Id { get; set; }
-    public string Titulo { get; set; } = "";
-    public string Autor { get; set; } = "";
-    public string Genero { get; set; } = "";
-    // Estado: "pendiente" | "leyendo" | "leido"
-    public string Estado { get; set; } = "pendiente";
-    public int? Calificacion { get; set; } // 1 a 5, opcional
-}
-
-public class AppDbContext : DbContext
-{
-    public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
-    public DbSet<Libro> Libros => Set<Libro>();
-}

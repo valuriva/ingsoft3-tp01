@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite'
+import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 
 // En desarrollo local (npm run dev), Vite proxea /api hacia el backend.
@@ -9,5 +9,13 @@ export default defineConfig({
     proxy: {
       '/api': 'http://localhost:8080'
     }
-  }
+  },
+  test: {
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'html', 'lcov', 'json-summary'],
+      include: ['src/lib/**'],
+      thresholds: { lines: 80, branches: 80 },
+    },
+  },
 })
