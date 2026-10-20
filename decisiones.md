@@ -105,29 +105,29 @@ quedara bloqueado con el check en rojo, y que el badge llevara al historial real
 ## TP5 - Calidad automatizada: tests, coverage y umbral
 
 ### Que logica elegi testear y por que
-Teste las reglas de negocio de Mi Biblioteca: titulo obligatorio y con largo maximo, calificacion entre 1 y 5, solo se puede calificar un libro leido, un libro leido no vuelve a pendiente, y no se repite titulo + autor. Son las reglas donde un bug deja datos inconsistentes en la base. Las saque de Program.cs a clases (LibroValidator y ServicioDeLibros) porque dentro de los lambdas ningun test podia llamarlas.
+Teste las reglas de negocio de Mi Biblioteca: titulo obligatorio y con largo maximo, calificación entre 1 y 5, solo se puede calificar un libro leído, un libro leído no vuelve a pendiente, y no se repite título + autor. Son las reglas donde un bug deja datos inconsistentes en la base. Las saque de Program.cs a clases (LibroValidator y ServicioDeLibros) porque dentro de los lambdas ningun test podia llamarlas.
 
 ### Refactor para poder mockear
-ServicioDeLibros creaba su acceso a datos adentro, asi que no habia forma de reemplazarlo desde un test. Ahora recibe una interfaz (IRepositorioLibros) por constructor, y los tests usan un doble con Moq para verificar que el libro se guarda una sola vez, y que NO se guarda si es invalido o duplicado. En Program.cs hay que registrar la dependencia, porque si falta la app falla en el primer pedido aunque los tests pasen; lo verifique con una llamada real a la API despues del refactor.
+ServicioDeLibros creaba su acceso a datos adentro, asi que no habia forma de reemplazarlo desde un test. Ahora recibe una interfaz (IRepositorioLibros) por constructor, y los tests usan un doble con Moq para verificar que el libro se guarda una sola vez, y que NO se guarda si es inválido o duplicado. En Program.cs hay que registrar la dependencia, porque si falta la app falla en el primer pedido aunque los tests pasen; lo verifique con una llamada real a la API después del refactor.
 
 ### Umbral de cobertura
-Backend: umbral de 70% sobre lineas. Hoy mide 97,3% de lineas (37 de 38) y 92,3% de ramas (24 de 26). Frontend: umbral de 80% en lineas y en ramas; hoy mide [X]% de lineas y [X]% de ramas. Elegi el 70 del backend antes de medir y, mirando el resultado, es holgado: el gate solo me frenaria si la cobertura cayera mucho. Si lo repitiera, lo subiria cerca del 90 para que frene antes. Para sostener un numero asi de alto tendria que testear los endpoints de Program.cs, que hoy no tienen tests y quedan afuera de la cuenta.
+Backend: umbral de 70% sobre lineas. Hoy mide 97,3% de lineas (37 de 38) y 92,3% de ramas (24 de 26). Frontend: umbral de 80% en lineas y en ramas; hoy mide 60% de lineas y 95,45% de ramas. Elegí el 70 del backend antes de medir y, mirando el resultado, es holgado: el gate solo me frenaría si la cobertura cayera mucho. Si lo repitiera, lo subiría cerca del 90 para que frene antes. Para sostener un número así de alto tendría que testear los endpoints de Program.cs, que hoy no tienen tests y quedan afuera de la cuenta.
 
 ### Que deje afuera de la cuenta y por que
-Backend: Program (arranque y rutas, sin reglas de negocio), la carpeta Data (el DbContext y el repositorio, que solo hacen de pegamento con la base) y los modelos (clases con solo propiedades). Frontend: solo cuenta src/lib, donde vive la logica pura; los componentes de UI se verifican end-to-end mas adelante. No excluyo logica de negocio: las reglas estan en Logica y Servicios, y esas si cuentan.
+Backend: Program (arranque y rutas, sin reglas de negocio), la carpeta Data (el DbContext y el repositorio, que solo hacen de pegamento con la base) y los modelos (clases con solo propiedades). Frontend: solo cuenta src/lib, donde vive la lógica pura; los componentes de UI se verifican end-to-end más adelante. No excluyo lógica de negocio: las reglas estan en Lógica y Servicios, y esas si cuentan.
 
 ### Por que coverage alto no garantiza calidad
-Un test que llama a LibroValidator.Validar sin ningun Assert ejecuta todas las lineas y sube la cobertura sin verificar nada. La cobertura mide que se ejecuto, no que se comprobo.
+Un test que llama a LibroValidator.Validar sin ningún Assert ejecuta todas las líneas y sube la cobertura sin verificar nada. La cobertura mide que se ejecuto, no que se comprobo.
 
 ### El camino sin cubrir
-En LibroValidator.Validar queda sin cubrir el return de "El estado debe ser pendiente, leyendo o leido", que es la unica linea sin cubrir del reporte. La recorreria un libro con estado "archivado". Decision: no agregue el test, porque el frontend solo ofrece los tres estados validos y la regla de estado no es la que mas riesgo tiene; si la API quedara expuesta a otros clientes, lo agregaria.
+En LibroValidator.Validar queda sin cubrir el return de "El estado debe ser pendiente, leyendo o leído", que es la única línea sin cubrir del reporte. La recorrería un libro con estado "archivado". Decisión: no agregue el test, porque el frontend solo ofrece los tres estados válidos y la regla de estado no es la que más riesgo tiene; si la API quedara expuesta a otros clientes, lo agregaría.
 
 ### Pull Request bloqueado por cobertura
-En el PR https://github.com/valuriva/ingsoft3-tp01/pull/30 agregue la funcion prioridadDe sin tests. Compilaba y todos los tests pasaban, pero build-frontend quedo en rojo porque las lineas cayeron por debajo del 80% (corrida roja: https://github.com/valuriva/ingsoft3-tp01/actions/runs/39420616325). Escribi un test por cada camino de la funcion, el check paso a verde y mergee. Deje abierto el PR https://github.com/valuriva/ingsoft3-tp01/pull/31, con el mismo problema sin arreglar, como prueba de que el freno sigue activo.
+En el PR https://github.com/valuriva/ingsoft3-tp01/pull/30 agregue la función prioridadDe sin tests. Compilaba y todos los tests pasaban, pero build-frontend quedo en rojo porque las líneas cayeron por debajo del 80% (corrida roja: https://github.com/valuriva/ingsoft3-tp01/actions/runs/39420616325). Escribí un test por cada camino de la función, el check paso a verde y mergee. Deje abierto el PR https://github.com/valuriva/ingsoft3-tp01/pull/31, con el mismo problema sin arreglar, como prueba de que el freno sigue activo.
 
 ### Problemas encontrados
-- Estaba trabajando en una copia vieja del repo (en OneDrive) que no tenia el workflow ni los ultimos commits; lo detecte con git log y volvi a la carpeta correcta.
-- Al usar notepad el README se corrompio por la codificacion; desde entonces escribo los archivos por consola con Out-File.
+- Estaba trabajando en una copia vieja del repo (en OneDrive) que no tenia el workflow ni los últimos commits; lo detecte con git log y volví a la carpeta correcta.
+- Al usar notepad el README se corrompio por la codificación; desde entonces escribo los archivos por consola con Out-File.
 
 ### Uso de IA
 Use Claude para guiarme en el refactor, escribir la suite y configurar el pipeline. Verifique cada paso corriendo los tests en local y dentro de Docker, comprobando que el job se ponga rojo bajo el umbral, y probando la API real con una llamada despues del refactor. Puedo explicar que verifica cada assert y que caso no esta cubierto.
