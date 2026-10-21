@@ -1,4 +1,4 @@
-name: CI
+name: CI/CD Pipeline
 
 on:
   pull_request:
@@ -143,3 +143,21 @@ jobs:
           tags: ghcr.io/valuriva/ingsoft3-tp01-frontend:sha-${{ github.sha }}
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,mode=max,scope=frontend
+
+  deploy:
+    name: Desplegar a Render (QA y PROD)
+    needs: [build-backend, build-frontend]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger API QA Deploy
+        run: curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK_API_QA }}"
+
+      - name: Trigger Frontend QA Deploy
+        run: curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK_FRONT_QA }}"
+
+      - name: Trigger API PROD Deploy
+        run: curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK_API_PROD }}"
+
+      - name: Trigger Frontend PROD Deploy
+        run: curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK_FRONT_PROD }}"
