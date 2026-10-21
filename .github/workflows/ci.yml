@@ -144,20 +144,53 @@ jobs:
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,mode=max,scope=frontend
 
-  deploy:
-    name: Desplegar a Render (QA y PROD)
+  deploy-qa:
+    name: Deploy a QA
+    runs-on: ubuntu-latest
     needs: [build-backend, build-frontend]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    environment: qa
     steps:
-      - name: Trigger API QA Deploy
-        run: curl -fsSL -X POST "${{ secrets.RENDER_DEPLOY_HOOK_API_QA }}"
+      - name: Trigger QA Deploy en Render (commit verificado)
+        run: |
+          curl -fsS --max-time 30 "${{ secrets.RENDER_DEPLOY_HOOK_API_QA }}&ref=$GITHUB_SHA"
+          curl -fsS --max-time 30 "${{ secrets.RENDER_DEPLOY_HOOK_FRONT_QA }}&ref=$GITHUB_SHA"
 
-      - name: Trigger Frontend QA Deploy
-        run: curl -fsSL -X POST "${{ secrets.RENDER_DEPLOY_HOOK_FRONT_QA }}"
+      - name: Smoke test QA (espera a que conteste)
+        shell: bash
+        run: |
+          echo "Esperando a que QA esté vivo..."
+          for i in $(seq 1 30); do
+            if curl -fsS --max-time 10 "https://miapp-api-qa-eduo.onrender.com/api/libros" > /dev/null; then
+              echo "✅ QA responde correctamente"
+              exit 0
+            fi
+            sleep 20
+          done
+          echo "❌ QA no respondió a tiempo"
+          exit 1
 
-      - name: Trigger API PROD Deploy
-        run: curl -fsSL -X POST "${{ secrets.RENDER_DEPLOY_HOOK_API_PROD }}"
+  deploy-prod:
+    name: Deploy a Producción
+    runs-on: ubuntu-latest
+    needs: deploy-qa
+    environment: production
+    steps:
+      - name: Trigger PROD Deploy en Render (commit verificado)
+        run: |
+          curl -fsS --max-time 30 "${{ secrets.RENDER_DEPLOY_HOOK_API_PROD }}&ref=$GITHUB_SHA"
+          curl -fsS --max-time 30 "${{ secrets.RENDER_DEPLOY_HOOK_FRONT_PROD }}&ref=$GITHUB_SHA"
 
-      - name: Trigger Frontend PROD Deploy
-        run: curl -fsSL -X POST "${{ secrets.RENDER_DEPLOY_HOOK_FRONT_PROD }}"
+      - name: Smoke test PROD (espera a que conteste)
+        shell: bash
+        run: |
+          echo "Esperando a que PROD esté vivo..."
+          for i in $(seq 1 30); do
+            if curl -fsS --max-time 10 "https://miapp-api-prod-oksk.onrender.com/api/libros" > /dev/null; then
+              echo "✅ PROD responde correctamente"
+              exit 0
+            fi
+            sleep 20
+          done
+          echo "❌ PROD no respondió a tiempo"
+          exit 1
