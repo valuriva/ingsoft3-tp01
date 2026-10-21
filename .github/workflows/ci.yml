@@ -151,13 +151,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Trigger API QA Deploy
-        run: curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK_API_QA }}"
+        run: curl -fsSL -X POST "${{ secrets.RENDER_DEPLOY_HOOK_API_QA }}"
 
       - name: Trigger Frontend QA Deploy
-        run: curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK_FRONT_QA }}"
+        run: curl -fsSL -X POST "${{ secrets.RENDER_DEPLOY_HOOK_FRONT_QA }}"
 
       - name: Trigger API PROD Deploy
-        run: curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK_API_PROD }}"
+        run: curl -fsSL -X POST "${{ secrets.RENDER_DEPLOY_HOOK_API_PROD }}"
 
       - name: Trigger Frontend PROD Deploy
-        run: curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK_FRONT_PROD }}"
+        run: curl -fsSL -X POST "${{ secrets.RENDER_DEPLOY_HOOK_FRONT_PROD }}"
