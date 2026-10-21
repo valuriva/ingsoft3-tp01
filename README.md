@@ -5,7 +5,7 @@
 Gestor de libros personal: backend en .NET 8 (minimal API), frontend en React + Vite,
 base de datos PostgreSQL. Proyecto del semestre para Ingenieria en Software 3.
 
-## Como levantar el sistema completo (en una maquina limpia)
+## Como levantar el sistema completo (en una maquina limpia).
 
 Prerequisito: tener Docker instalado y corriendo.
 
@@ -20,7 +20,7 @@ docker compose up -d --build
 - Backend (API): http://localhost:8080
 - Health check: http://localhost:8080/health
 
-## Levantar usando las imagenes publicadas (sin build local)
+## Levantar usando las imagenes publicadas (sin build local).
 
 ```bash
 cp .env.example .env
