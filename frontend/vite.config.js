@@ -1,4 +1,4 @@
-import { defineConfig } from 'vitest/config'
+import { defineConfig, configDefaults } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 
 // En desarrollo local (npm run dev), Vite proxea /api hacia el backend.
@@ -11,6 +11,7 @@ export default defineConfig({
     }
   },
   test: {
+    exclude: [...configDefaults.exclude, 'e2e/**'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html', 'lcov', 'json-summary'],
