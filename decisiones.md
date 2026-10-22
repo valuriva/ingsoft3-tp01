@@ -267,3 +267,53 @@ $$\text{Build} \longrightarrow \text{Deploy QA} \longrightarrow \text{Integraci�
 - **Herramientas utilizadas**: Asistente de IA (Gemini).
 - **Alcance de la asistencia**: Se utilizó la IA como apoyo para la reestructuración del pipeline de CI/CD ("Build Once, Deploy Many"), la generación de scripts de pruebas con Playwright, la depuración de dependencias de Vitest/Playwright, la resolución de conflictos de ramas protegidas en Git y el armado de la documentación final.
 - **Verificación y validación**: Cada línea de código HCL/YAML, archivo de configuración y script JS fue validado localmente en PowerShell y ejecutado en GitHub Actions, verificando activamente las corridas fallidas (freno de gate) y exitosas antes de la promoción a Producción.
+
+@'
+
+## TP 8: Infraestructura como Código (IaC) y Entorno Efímero de Preproducción
+
+### 1. Contexto y Objetivos
+El objetivo principal de este trabajo práctico es aprovisionar de manera automatizada y reproducible un entorno transitorio (efímero) de preproducción (`preprod`), permitiendo validar la integración y despliegue continuo de la aplicación antes de pasar a producción, siguiendo las prácticas de Infraestructura como Código (IaC).
+
+### 2. Herramientas y Proveedores Seleccionados
+- **Orquestador de IaC**: Terraform (v1.5+). Se seleccionó Terraform por su enfoque declarativo, gestión explícita del estado (`terraform.tfstate`) y amplio ecosistema de proveedores.
+- **Base de Datos (Neon Provider `kislerdm/neon` v0.18.0)**: Se utilizó el proveedor de Neon para aprovisionar automáticamente el proyecto PostgreSQL serverless (`miapp-preprod`), el usuario/rol (`app_preprod_owner`) y la base de datos (`app_preprod`).
+- **Cómputo / Plataforma de Aplicación (Render Provider `render-oss/render` v1.9.1)**: Se utilizó el proveedor de Render para administrar los Web Services del Backend (`miapp-api-preprod`) y Frontend (`miapp-front-preprod`).
+
+### 3. Decisiones Arquitectónicas Clave
+
+#### A. Inmutabilidad de Artefactos (Integración con TP07)
+En lugar de compilar código fuente durante el aprovisionamiento, los servicios web en Render consumen imágenes Docker inmutables previamente publicadas en GitHub Container Registry (GHCR) en el TP07, identificadas unívocamente por su tag SHA:
+- **API Backend**: `ghcr.io/valuriva/ingsoft3-tp01-backend:sha-e9d26d831d7f2f89fa1db61741a1c6aabf7cfe15`
+- **Frontend**: `ghcr.io/valuriva/ingsoft3-tp01-frontend:sha-e9d26d831d7f2f89fa1db61741a1c6aabf7cfe15`
+
+#### B. Seguridad y Gestión de Secretos
+- **Sin credenciales hardcodeadas**: Ningún token, clave de API ni contraseña de base de datos se guarda en el código de Terraform.
+- **Variables de Entorno**: La autenticación con los proveedores se gestiona de forma segura mediante variables de entorno en la terminal (`NEON_API_KEY`, `RENDER_API_KEY`, `RENDER_OWNER_ID`).
+- **Soporte para Cuentas Organizacionales y Equipos**:
+  - Para Neon, se configuró explícitamente el `org_id` (`org-orange-base-06884905`).
+  - Para Render, se configuró el `owner_id` correspondiente al espacio de trabajo de equipo (`tea-dbchb4jrjlhs73bg8fi0`).
+
+#### C. Interconexión Dinámica entre Servicios
+- La cadena de conexión a la base de datos (`ConnectionStrings__Default`) se compone dinámicamente mediante un bloque `locals` utilizando los atributos generados por los recursos de Neon (`database_host`, `name`, `password`).
+- La URL pública asignada al Backend por Render se inyecta de forma automática en la variable de entorno `BACKEND_URL` del Frontend (`render_web_service.api.url`).
+
+#### D. Carácter Efímero
+Toda la definición de la infraestructura se encuentra aislada en el directorio `infra/`. Al ser un entorno de preproducción transitorio, el ciclo de vida completo puede ser creado en minutos con `terraform apply` y destruido completamente con `terraform destroy` para optimizar el consumo de recursos.
+'@ | Out-File -FilePath "decisiones.md" -Encoding utf8 -Append
+
+### 4. Uso de la IA
+Durante el desarrollo del TP08, se utilizó un asistente de IA como herramienta colaborativa para las siguientes tareas:
+
+- **Diagnóstico y Resolución de Errores de Aprovisionamiento**:
+  - Identificación del error `org_id is required` en el proveedor de Neon, determinando la necesidad de explicitar la organización institucional (`org-orange-base-06884905`).
+  - Resolución del error `invalid ownerID` en el proveedor de Render mediante la consulta a la API `/v1/owners`, identificando que la cuenta operaba bajo un ID de equipo (`tea-dbchb4jrjlhs73bg8fi0`) y no un ID de usuario personal (`usr-`).
+
+- **Estructuración e Integración de Código de Infraestructura**:
+  - Asistencia en la definición declarativa de recursos en Terraform (`main.tf`, `variables.tf`, `outputs.tf`) para vincular dinámicamente las credenciales de la base de datos de Neon con las variables de entorno del servicio API en Render.
+  - Aseguramiento de la inmutabilidad reutilizando los tags de imagen Docker compilados previamente en el TP07 (`sha-e9d26d831d7f2f89fa1db61741a1c6aabf7cfe15`).
+
+- **Automatización y Documentación**:
+  - Generación de scripts en PowerShell para la inyección limpia de variables de entorno sin exponer secretos en el repositorio.
+  - Redacción y estructuración del informe de decisiones de arquitectura (`decisiones.md`).
+'@ | Out-File -FilePath "decisiones.md" -Encoding utf8 -Append
