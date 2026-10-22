@@ -208,3 +208,62 @@ Se utilizó asistencia de Inteligencia Artificial como colaboradora de desarroll
 - La depuración de comandos de terminal (diferencias de sintaxis entre curl en Bash vs PowerShell).
 
 **Verificación Humana:** Cada paso generado fue probado de forma manual mediante ejecuciones reales en GitHub Actions, verificación de bases aisladas en Neon PostgreSQL y comprobaciones de estado Live en la consola de Render.
+
+# TP 7: Build Once, Deploy Many & Quality Gates
+
+## 1. Estrategia de Artefactos e Imágenes Inmutables
+
+Para implementar el patrón **Build Once, Deploy Many**, desacoplamos la etapa de compilación del despliegue en Render:
+
+- **Construcción única**: GitHub Actions construye una sola vez la imagen de contenedor del backend y del frontend durante los jobs `build-backend` y `build-frontend`.
+- **Registro de artefactos (GHCR)**: Las imágenes se publican en GitHub Packages (`ghcr.io`) etiquetadas de forma inmutable utilizando el SHA único del commit de Git:
+  - Backend: `ghcr.io/valuriva/ingsoft3-tp01-backend:sha-${{ github.sha }}`
+  - Frontend: `ghcr.io/valuriva/ingsoft3-tp01-frontend:sha-${{ github.sha }}`
+- **Despliegue inmutable en Render**: Los servicios de Render en QA y Producción fueron configurados en modo **Existing Image**. El pipeline activa los despliegues enviando la variable `imgURL` a los Deploy Hooks de Render, garantizando que el exacto artefacto probado en QA sea el que se promueve a Producción.
+
+## 2. Matriz de Entornos y Despliegue
+
+| Entorno | Componente | URL / Endpoint | Estrategia de Despliegue |
+| :--- | :--- | :--- | :--- |
+| **QA** | Backend API | `https://miapp-api-qa-eduo.onrender.com` | Automático por Webhook (`imgURL`) |
+| **QA** | Frontend | `https://miapp-front-qa.onrender.com` | Automático por Webhook (`imgURL`) |
+| **PROD** | Backend API | `https://miapp-api-prod-oksk.onrender.com` | Gate Humano (Aprobación manual en GitHub) |
+| **PROD** | Frontend | `https://miapp-front-prod.onrender.com` | Gate Humano (Aprobación manual en GitHub) |
+
+## 3. Suites de Pruebas Automatizadas (Playwright)
+
+Se integraron dos suites de pruebas utilizando **Playwright** en la carpeta `frontend/`:
+
+1. **Pruebas de Integración (`e2e/api.spec.js`)**:
+   - Pruebas HTTP directas contra la API de QA.
+   - Verifican la creación, lectura y eliminación de registros en la base de datos de QA, así como el manejo de errores HTTP 400.
+2. **Pruebas End-to-End (`e2e/libros.spec.js`)**:
+   - Pruebas automatizadas sobre un navegador Chromium real interactuando con la interfaz gráfica del Frontend en QA.
+   - Verifican la carga correcta de la interfaz, la absorción del tiempo de arranque (*cold start*) y la estabilidad visual.
+
+## 4. Pipeline de CI/CD y Gates de Calidad
+
+La secuencia del pipeline en `.github/workflows/ci.yml` asegura que ningún código defectuoso llegue a Producción:
+
+$$\text{Build} \longrightarrow \text{Deploy QA} \longrightarrow \text{Integración (API)} \longrightarrow \text{E2E (Browser)} \longrightarrow \text{Deploy PROD (Gate Manual)}$$
+
+- **Gate Automatizado**: Si el job `integracion` o `e2e` falla, la ejecución se interrumpe inmediatamente y el job `deploy-prod` ni siquiera llega a solicitar revisión.
+- **Gate Humano**: El entorno `production` requiere la aprobación manual de un revisor en GitHub (*Required Reviewers*) antes de disparar los webhooks de Render para Producción.
+
+## 5. Evidencias de Ejecución y Tareas del TP07
+
+- **Evidencia Tarea 4 (Freno del Pipeline por Falla en Gate)**:
+  - **Corrida de Freno**: Corrida `#55` (Commit `37e0112`).
+  - **Resultado**: Integración 🟢 | E2E 🔴 | Deploy a Producción ⚪ (Frenado automáticamente).
+  - **Diagnóstico**: La suite E2E detuvo la ejecución ante inconsistencias en la interfaz de QA, impidiendo la promoción a Producción.
+
+- **Evidencia Tarea 5 (Promoción Exitosa a Producción)**:
+  - **Ajuste**: Resolución de timeouts y compatibilidad en `feature/e2e-green-fix`.
+  - **Resultado**: Build 🟢 | QA 🟢 | Integración 🟢 | E2E 🟢 | PROD 🟢 (Aprobado manualmente).
+  - **Release / Etiqueta de Versión**: `v7.0.0` creada sobre el commit fusionado en `main`.
+
+## Uso de IA
+
+- **Herramientas utilizadas**: Asistente de IA (Gemini).
+- **Alcance de la asistencia**: Se utilizó la IA como apoyo para la reestructuración del pipeline de CI/CD ("Build Once, Deploy Many"), la generación de scripts de pruebas con Playwright, la depuración de dependencias de Vitest/Playwright, la resolución de conflictos de ramas protegidas en Git y el armado de la documentación final.
+- **Verificación y validación**: Cada línea de código HCL/YAML, archivo de configuración y script JS fue validado localmente en PowerShell y ejecutado en GitHub Actions, verificando activamente las corridas fallidas (freno de gate) y exitosas antes de la promoción a Producción.
