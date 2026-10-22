@@ -176,10 +176,78 @@ jobs:
           echo "❌ QA no respondió a tiempo"
           exit 1
 
+  integracion:
+    name: Pruebas de Integración (API QA)
+    runs-on: ubuntu-latest
+    needs: deploy-qa
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: ./frontend
+
+      - name: Ejecutar pruebas de integración contra la API de QA
+        env:
+          API_BASE_URL: https://miapp-api-qa-eduo.onrender.com
+        run: npx playwright test e2e/api.spec.js
+        working-directory: ./frontend
+
+      - name: Publicar reporte de integración
+        uses: actions/upload-artifact@v6
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report-integracion
+          path: frontend/playwright-report
+          retention-days: 7
+
+  e2e:
+    name: Pruebas End-to-End (Browser QA)
+    runs-on: ubuntu-latest
+    needs: integracion
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies + Chromium
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+        working-directory: ./frontend
+
+      - name: Ejecutar pruebas E2E contra el Frontend de QA
+        env:
+          E2E_BASE_URL: https://miapp-front-qa.onrender.com
+        run: npx playwright test e2e/libros.spec.js
+        working-directory: ./frontend
+
+      - name: Publicar reporte E2E
+        uses: actions/upload-artifact@v6
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report-e2e
+          path: frontend/playwright-report
+          retention-days: 7
+
   deploy-prod:
     name: Deploy a Producción
     runs-on: ubuntu-latest
-    needs: deploy-qa
+    needs: e2e
     environment: production
     steps:
       - name: Desplegar en PROD la IMAGEN del commit (API + Front)
