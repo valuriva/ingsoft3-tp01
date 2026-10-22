@@ -151,10 +151,16 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     environment: qa
     steps:
-      - name: Trigger QA Deploy en Render (commit verificado)
+      - name: Desplegar en QA la IMAGEN del commit (API + Front)
+        shell: bash
+        env:
+          HOOK_API: ${{ secrets.RENDER_DEPLOY_HOOK_API_QA }}
+          HOOK_FRONT: ${{ secrets.RENDER_DEPLOY_HOOK_FRONT_QA }}
         run: |
-          curl -fsS --max-time 30 "${{ secrets.RENDER_DEPLOY_HOOK_API_QA }}&ref=$GITHUB_SHA"
-          curl -fsS --max-time 30 "${{ secrets.RENDER_DEPLOY_HOOK_FRONT_QA }}&ref=$GITHUB_SHA"
+          IMG_API="ghcr.io/${{ github.repository }}-backend:sha-${{ github.sha }}"
+          IMG_FRONT="ghcr.io/${{ github.repository }}-frontend:sha-${{ github.sha }}"
+          curl -fsS --max-time 30 --get --data-urlencode "imgURL=$IMG_API" "$HOOK_API"
+          curl -fsS --max-time 30 --get --data-urlencode "imgURL=$IMG_FRONT" "$HOOK_FRONT"
 
       - name: Smoke test QA (espera a que conteste)
         shell: bash
@@ -176,10 +182,16 @@ jobs:
     needs: deploy-qa
     environment: production
     steps:
-      - name: Trigger PROD Deploy en Render (commit verificado)
+      - name: Desplegar en PROD la IMAGEN del commit (API + Front)
+        shell: bash
+        env:
+          HOOK_API: ${{ secrets.RENDER_DEPLOY_HOOK_API_PROD }}
+          HOOK_FRONT: ${{ secrets.RENDER_DEPLOY_HOOK_FRONT_PROD }}
         run: |
-          curl -fsS --max-time 30 "${{ secrets.RENDER_DEPLOY_HOOK_API_PROD }}&ref=$GITHUB_SHA"
-          curl -fsS --max-time 30 "${{ secrets.RENDER_DEPLOY_HOOK_FRONT_PROD }}&ref=$GITHUB_SHA"
+          IMG_API="ghcr.io/${{ github.repository }}-backend:sha-${{ github.sha }}"
+          IMG_FRONT="ghcr.io/${{ github.repository }}-frontend:sha-${{ github.sha }}"
+          curl -fsS --max-time 30 --get --data-urlencode "imgURL=$IMG_API" "$HOOK_API"
+          curl -fsS --max-time 30 --get --data-urlencode "imgURL=$IMG_FRONT" "$HOOK_FRONT"
 
       - name: Smoke test PROD (espera a que conteste)
         shell: bash
