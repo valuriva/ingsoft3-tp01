@@ -131,3 +131,80 @@ En el PR https://github.com/valuriva/ingsoft3-tp01/pull/30 agregue la función p
 
 ### Uso de IA
 Use Claude para guiarme en el refactor, escribir la suite y configurar el pipeline. Verifique cada paso corriendo los tests en local y dentro de Docker, comprobando que el job se ponga rojo bajo el umbral, y probando la API real con una llamada despues del refactor. Puedo explicar que verifica cada assert y que caso no esta cubierto.
+
+## TP6: CD: environments, aprobaciones y deployment patterns 
+
+- **Paquetes públicos en GHCR (Registry):**
+  - Backend: `ghcr.io/valuriva/ingsoft3-tp01-backend`
+  - Frontend: `ghcr.io/valuriva/ingsoft3-tp01-frontend`
+- **Cadena de verificación del Registry (Evidencias de confiabilidad):**
+  - [Corrida de PR con tests en verde (Paso "Entrar al registry" salteado)](https://github.com/valuriva/ingsoft3-tp01/actions)
+  - [Corrida de main con publicación como ÚLTIMO paso del job](https://github.com/valuriva/ingsoft3-tp01/actions)
+- **Entornos desplegados:**
+  - **Entorno QA:**
+    - Frontend QA: `https://miapp-front-qa.onrender.com`
+    - API QA: `https://miapp-api-qa-eduo.onrender.com`
+  - **Entorno Producción (PROD):**
+    - Frontend PROD: `https://miapp-front-prod.onrender.com`
+    - API PROD: `https://miapp-api-prod-oksk.onrender.com`
+   
+  ### 1. El Artefacto y Confiabilidad del Registry
+Un pipeline que no produce un artefacto verificado no es Integración Continua, es simple compilación. Si las imágenes se publicaran sin verificar o cuando los tests fallan, el registry dejaría de ser la "fuente de verdad" de binarios confiables y pasaría a ser un almacén de versiones rotas.
+
+La confiabilidad del registry se sostiene por la cadena ininterrumpida de tres reglas:
+1. **Nada entra a `main` sin pasar los tests y métricas de CI.**
+2. **Únicamente los eventos de `push` sobre la rama `main` tienen permisos para publicar.**
+3. **El paso de construcción y publicación a GHCR es el ÚLTIMO paso del job.** Si los tests fallan antes, el runner detiene la ejecución inmediatamente y el comando de publicación nunca llega a ejecutarse.
+
+### 2. Continuous Delivery vs Continuous Deployment
+En este proyecto implementamos **Continuous Delivery**.
+- Cada cambio validado se empaqueta y despliega automáticamente al entorno de **QA**.
+- El paso hacia **Producción** requiere una aprobación humana explícita (*Required Reviewers*) antes de ejecutarse.
+
+Elegí Continuous Delivery porque en nuestro contexto de negocio preferimos mantener un control explícito sobre el momento del impacto en los usuarios finales, permitiendo coordinar tiempos de release, verificar evidencias de QA y minimizar ventanas de riesgo, en lugar de desplegar a producción sin supervisión.
+
+### 3. Diseño de la Cadena y Alcance de Secrets
+El pipeline en `.github/workflows/ci.yml` está estructurado en 4 jobs independientes: `build-backend`, `build-frontend`, `deploy-qa` y `deploy-prod`.
+
+- **Aislamiento de Secrets:** Los secretos de los despliegues (`RENDER_DEPLOY_HOOK_*`) no se definieron a nivel de repositorio global, sino atados al alcance (*scope*) de sus respectivos **Environments** (`qa` y `production`).
+- **Seguridad:** Los secretos del entorno `production` son completamente invisibles para los jobs anteriores y solo se liberan al runner una vez que la aprobación manual fue concedida.
+- **Garantía de Commit (`&ref=$GITHUB_SHA`):** Disparar el webhook con `&ref=$GITHUB_SHA` garantiza que Render construya exactamente el commit verificado y no la punta arbitraria de la rama en ese instante.
+
+### 4. Criterios del Gate Humano y Evidencia de Rechazo
+Antes de aprobar un despliegue a producción, el aprobador analiza los siguientes criterios:
+1. Que el job `deploy-qa` y su *Smoke Test* hayan finalizado en verde.
+2. Que la suite de pruebas unitarias e integración de backend y frontend mantengan la cobertura requerida.
+3. Que no existan alertas críticas en las métricas del entorno de QA ni cambios no coordinados en el esquema de base de datos.
+
+**Evidencia de Rechazo:** Se ejecutó un rechazo explícito documentado en GitHub Actions con el motivo: *"Se frena el despliegue a Producción para realizar una revisión manual de auditoría sobre los logs de QA y verificar tiempos de respuesta"*, demostrando que el gate frena la propagación cuando el criterio humano lo requiere.
+
+### 5. Configuración del Front y Manejo del Free Tier
+- **Inmutabilidad y Nginx Dinámico:** Se migró la configuración fija del frontend a la plantilla `default.conf.template`. Nginx lee `${BACKEND_URL}` y `${DNS_RESOLVER}` al arrancar el contenedor. Esto permite utilizar exactamente la misma lógica de imagen cambiando solo la variable de entorno según si corre en QA o PROD.
+- **Letra Chica de la Infraestructura Gratuita:** 
+  - Render suspende las instancias tras 15 minutos de inactividad. El primer request post-suspensión sufre un *cold start* de hasta 50 segundos.
+  - Para evitar falsos negativos en el pipeline por *cold start*, el paso de **Smoke Test** implementa un bucle de reintentos en Bash (`seq 1 30` con `sleep 20`), permitiendo hasta 10 minutos de margen para la activación de la API y la base de datos en Neon.
+- **Limitación de Reconstrucción en Render:** Render vuelve a construir el código fuente desde el repositorio al recibir el hook en lugar de consumir directamente la imagen Docker publicada en GHCR. 
+
+### 6. Estrategia de Deployment en Producción y Plan de Rollback
+
+#### Blue-Green Deployment + Feature Flags
+Para un entorno de producción real, la estrategia es **Blue-Green Deployment** combinado con **Feature Flags**:
+- **Por qué:** Permite mantener dos entornos de infraestructura idénticos. El tráfico se conmuta de manera instantánea mediante el balanceador de carga sin sufrir ventanas de inactividad (*downtime*).
+- **Observabilidad requerida:** Para operar esta estrategia con seguridad nos faltaría contar con métricas en tiempo real (APM/Prometheus), monitoreo de tasa de errores (Sentry) y trazabilidad distribuida para verificar la salud del ambiente Green antes de desaprovisionar el Blue.
+
+#### Plan de Rollback Actual y Tiempo Medido
+Si un despliegue aprobado en Producción presenta fallas no detectadas:
+1. Se identifica el hash del último commit estable conocido en el historial de **Releases** / **Deployments** de GitHub.
+2. Se ejecuta manualmente el disparo del Deploy Hook de Producción enviando el SHA del commit estable anterior:
+   ```powershell
+   curl.exe -X POST "[https://api.render.com/deploy/srv-dbcjmkivcj2c73esbf50?key=_uGkxy3ASJs&ref=642a3d6](https://api.render.com/deploy/srv-dbcjmkivcj2c73esbf50?key=_uGkxy3ASJs&ref=642a3d6)"
+
+### Uso de IA
+
+Se utilizó asistencia de Inteligencia Artificial como colaboradora de desarrollo para:
+
+- La estructuración y optimización del flujo .github/workflows/ci.yml (jobs, condicionales needs, entornos y reintentos de smoke tests).
+- La conversión del archivo de configuración de Nginx a plantilla dinámica (default.conf.template).
+- La depuración de comandos de terminal (diferencias de sintaxis entre curl en Bash vs PowerShell).
+
+**Verificación Humana:** Cada paso generado fue probado de forma manual mediante ejecuciones reales en GitHub Actions, verificación de bases aisladas en Neon PostgreSQL y comprobaciones de estado Live en la consola de Render.
