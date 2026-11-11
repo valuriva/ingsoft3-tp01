@@ -1,7 +1,9 @@
-﻿version: 2
+version: 2
 updates:
   - package-ecosystem: "nuget"
-    directory: "/backend"
+    directories:
+      - "/backend/BibliotecaApi"
+      - "/backend/BibliotecaApi.Tests"
     schedule:
       interval: "weekly"
 
