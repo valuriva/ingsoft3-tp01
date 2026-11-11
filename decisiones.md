@@ -317,3 +317,21 @@ Durante el desarrollo del TP08, se utilizó un asistente de IA como herramienta 
   - Generación de scripts en PowerShell para la inyección limpia de variables de entorno sin exponer secretos en el repositorio.
   - Redacción y estructuración del informe de decisiones de arquitectura (`decisiones.md`).
 '@ | Out-File -FilePath "decisiones.md" -Encoding utf8 -Append
+
+## TP 9: DevSecOps y Observabilidad
+
+### 1. Actualización de Dependencias (Dependabot)
+- **PR Mergeado:** Se analizó y mergeó el PR automático de Dependabot para la actualización de dependencias en el ecosistema (por ejemplo, `npm` en frontend / `nuget` en backend).
+- **Justificación:** El merge se realizó con total confianza debido a la red de contención construida a lo largo del semestre: la ejecución del pipeline CI/CD en verde garantizó que los tests unitarios, la cobertura de código y los quality gates no sufrieron regresiones tras el update.
+
+### 2. Observabilidad y Monitoreo en Producción
+- **Monitoreo Externo:** Se configuró un monitor HTTP(s) en UptimeRobot apuntando a `/health`. Ante una caída provocada de prueba en el entorno de producción, la alerta `DOWN` demoró aproximadamente [X] minutos en registrarse y notificar, y la alerta `UP` se confirmó tras restablecer el servicio.
+- **Telemetría con Sentry:**
+  - **Operación más usada:** `GET /api/libros` (o el endpoint correspondiente).
+  - **Operación más lenta (P95):** `GET /api/libros` con un tiempo de latencia de [X] ms / s.
+  - **Captura de errores:** Se verificó la recepción de excepciones no controladas tanto en backend (`InvalidOperationException`) como en frontend (`Error: Test Sentry Frontend TP09`).
+
+### 3. Problemas Encontrados y Declaración de Uso de IA
+- **Dificultades:** Durante la instrumentación del frontend, surgió un error en la compilación por un `import './index.css'` inexistente en `main.jsx`, el cual fue corregido eliminando la referencia no utilizada. En la consola del navegador, la ejecución inicial de errores de prueba fue bloqueada por la protección Self-XSS y por la captura nativa de devtools, requiriendo `allow pasting` y la invocación desde el contexto global.
+- **Declaración de IA:** Se utilizó Claude/Gemini como asistente conversacional para la resolución de errores de build, la orientación paso a paso en la consola de PowerShell/Git, la configuración de la librería `@sentry/react` en Vite y la estructuración de la documentación. Los cambios fueron validados y probados manualmente en el pipeline de GitHub Actions y en los entornos de Render.
+  
