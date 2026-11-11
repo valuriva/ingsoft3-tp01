@@ -6,6 +6,13 @@ using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Observabilidad (TP09): el DSN llega por variable de entorno; si esta vacia, Sentry queda apagado.
+builder.WebHost.UseSentry(o =>
+{
+    o.Dsn = builder.Configuration["SENTRY_DSN"] ?? "";
+    o.TracesSampleRate = 1.0;
+});
+
 var connectionString = builder.Configuration.GetConnectionString("Default")
     ?? "Host=localhost;Database=app;Username=postgres;Password=postgres";
 
@@ -32,7 +39,11 @@ using (var scope = app.Services.CreateScope())
     db.Database.EnsureCreated();
 }
 
-app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
+// GET y HEAD: UptimeRobot consulta con HEAD y, con MapGet solo, recibiria 405.
+app.MapMethods("/health", new[] { "GET", "HEAD" }, () => Results.Ok(new { status = "ok" }));
+
+// TEMPORAL (TP09): fuerza un error para verlo en Sentry. Se borra despues de la prueba.
+app.MapGet("/api/falla", string () => throw new InvalidOperationException("Falla de prueba TP09"));
 
 app.MapGet("/api/libros", async (AppDbContext db) =>
     await db.Libros.OrderBy(l => l.Titulo).ToListAsync());
